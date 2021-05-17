@@ -1,0 +1,15 @@
+---
+# VPC
+vpc_cidr: 10.88.0.0/16
+vpc_name: "ansible_vpc"
+region: us-east-1
+# Subnet
+subnet_name: "public_ansible_subnet"
+subnet_cidr: 10.88.1.0/24
+
+# internet gateway
+igw_name: "Traffic IGW"
+
+ec2_key_directory: "/home/ubuntu/.ssh"
+keypair_name: "ansible_vpc_key_pair"
+

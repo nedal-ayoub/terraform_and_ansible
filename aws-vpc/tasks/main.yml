@@ -1,0 +1,78 @@
+---
+# tasks file for aws-vpc
+- hosts: 127.0.0.1
+  tasks:
+
+    - name: create vpc
+      ec2_vpc_net:
+        name: nedal1_vpc
+        cidr_block: "{{ vpc_cidr }}"
+        region: "{{ region }}"
+        state: present 
+      register: nedalvpc
+
+    - name: associate subnet to the vpc
+      ec2_vpc_subnet:
+        state: present
+        vpc_id: "{{ nedalvpc.vpc.id }}"
+        region: "{{ region }}"
+        cidr: "{{ subnet_cidr }}"
+        map_public: yes
+        resource_tags:
+          Name: "{{ subnet_name }}"
+      register: nedalsubnet
+ 
+    - name: sdasdad
+      ec2_vpc_igw:
+        vpc_id: "{{ nedalvpc.vpc.id }}"
+        region: "{{ region }}"
+        state: "present"
+      register: igw
+  
+    - name: route IGW 
+      ec2_vpc_route_table:
+        vpc_id: "{{ nedalvpc.vpc.id }}"
+        region: "{{ region }}"
+        subnets: 
+          - "{{ nedalsubnet.subnet.id }}"
+        routes:
+          - dest: 0.0.0.0/0
+            gateway_id: "{{ igw.gateway_id }}"
+    - name: create security group
+      ec2_group:
+        name: nedal_security
+        description: nedal_public_server_SG
+        vpc_id: "{{ nedalvpc.vpc.id }}"
+        region: "{{ region }}"
+        rules:
+          - proto: tcp
+            from_port: 80
+            to_port: 80
+            cidr_ip: 0.0.0.0/0
+          - proto: tcp
+            from_port: 22
+            to_port: 22
+            cidr_ip: 0.0.0.0/0
+                     
+      register: security_group
+    
+    - name: create a ned ec2 key pair
+      ec2_key:
+        name: key_ansible.ppk
+        region: "{{ region }}"
+      register: keypair
+
+    - name: move key
+      copy: content="{{ keypair.key.private_key }}" dest={{ ec2_key_directory }}/key_ansible.ppk
+      when: keypair.changed == true
+
+    - name: create ec2 server
+      ec2:
+        image: ami-0ee02acd56a52998e
+        wait: yes
+        instance_type: t2.micro
+        region: "{{ region }}"
+        group_id: "{{ security_group.group_id }}"
+        vpc_subnet_id: "{{ nedalsubnet.subnet.id }}"
+        key_name: "{{ keypair.key.name }}"
+        user_data: "#!/bin/bash \n sudo apt-get update \n sudo apt-get install -y docker.io  \n sudo docker run --name some-nginx -v /some/content:/usr/share/nginx/html:ro -d nginx \n "
